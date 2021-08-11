@@ -4,6 +4,7 @@ import numpy as np
 import pyrealsense2 as rs
 
 from RealSesneConfig.RSConfig import RealSenseConfig, RealSenseFilters
+from HandData.HandData import FingerData, PalmData
 
 mpHands = mp.solutions.hands
 hands = mpHands.Hands(False, 1, 0.5, 0.5)
@@ -20,18 +21,25 @@ fN = 0
 
 # Draw frame data
 current_frame = 0
-draw_frame_cords = (0, 0)
+
+PALMCOLOUR =  (0, 1, 1)
+
+PINKYCOLOUR = (0, 1, 0)
+RINGCOLOUR = (0, 0, 1)
+MIDDLECOLOUR = (1, 1, 0)
+INDEXCOLOUR = (1, 0, 0)
+THUMBCOLOUR = (1, 0, 1)
 
 # Mp Landmark Data
 keyLandmarks = [2, 4, 5, 8, 9, 12, 13, 16, 17, 20]
-fingerLandmarks = {
-    "palm" :   [0,0],
-    "pinky" :  [[0,0], [0,0]],
-    "ring" :   [[0,0], [0,0]],
-    "middle" : [[0,0], [0,0]],
-    "index" :  [[0,0], [0,0]],
-    "thumb" :  [[0,0], [0,0]]
-}
+
+palmData = PalmData(PALMCOLOUR)
+
+pinkyData = FingerData(PINKYCOLOUR)
+ringData = FingerData(RINGCOLOUR)
+middleData = FingerData(MIDDLECOLOUR)
+indexData = FingerData(INDEXCOLOUR)
+thumbData = FingerData(THUMBCOLOUR)
 
 def depth_threshold(background, foreground):
     filtered_image = np.where((depth_image_3d > rsConfig.clipping_distance) | (depth_image_3d <= 0), background, foreground)
@@ -55,6 +63,17 @@ def estimate_palm_point(highest_val_index):
     
     return highest_val_index
 
+def draw_knuckle(fingerData, cords):
+    fingerData.setknucklePoint(cords)
+    cv2.circle(processed_image, cords, 5, fingerData.colour, cv2.FILLED)
+    cv2.line(processed_image, palmData.centrePoint, fingerData.knucklePoint, color=fingerData.colour, thickness=5, lineType=8)
+
+def draw_tip(fingerData, cords):
+    fingerData.setTipPoint(cords)
+    cv2.circle(processed_image, cords, 5, fingerData.colour, cv2.FILLED)
+    cv2.line(processed_image, fingerData.knucklePoint, fingerData.tipPoint, color=fingerData.colour, thickness=15, lineType=8)
+
+
 def draw_finger_keypoints(processed_image):
     # Mp Landmarks
     imgRGB = cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB)
@@ -68,56 +87,22 @@ def draw_finger_keypoints(processed_image):
                 h, w, c = bg_removed.shape
                 cx, cy = int(lm.x*w), int(lm.y*h)
             
-                # Find fingertips
+                # Draw Skeleton Glove
                 if id in keyLandmarks:
-                    if id == 2:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['thumb'][0] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['palm'], fingerLandmarks['thumb'][0], color=(255, 0, 0), thickness=3, lineType=8)
-                    if id == 4:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['thumb'][1] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['thumb'][0], fingerLandmarks['thumb'][1], color=(255, 0, 0), thickness=3, lineType=8)
+                    if id == 2: draw_knuckle(thumbData, (cx, cy))
+                    if id == 4: draw_tip(thumbData, (cx, cy))
 
+                    if id == 5: draw_knuckle(indexData, (cx, cy))
+                    if id == 8: draw_tip(indexData, (cx, cy))
 
-                    if id == 5:
-                        cv2.circle(processed_image, (cx, cy), 5, (0, 255, 0), cv2.FILLED)
-                        fingerLandmarks['index'][0] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['palm'], fingerLandmarks['index'][0], color=(0, 255, 0), thickness=3, lineType=8)
-                    if id == 8:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['index'][1] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['index'][0], fingerLandmarks['index'][1], color=(0, 255, 0), thickness=3, lineType=8)
+                    if id == 9: draw_knuckle(middleData, (cx, cy))
+                    if id == 12: draw_tip(middleData, (cx, cy))
 
+                    if id == 13: draw_knuckle(ringData, (cx, cy))
+                    if id == 16: draw_tip(ringData, (cx, cy))
 
-                    if id == 9:
-                        cv2.circle(processed_image, (cx, cy), 5, (0, 0, 255), cv2.FILLED)
-                        fingerLandmarks['middle'][0] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['palm'], fingerLandmarks['middle'][0], color=(0, 0, 255), thickness=3, lineType=8)
-                    if id == 12:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['middle'][1] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['middle'][0], fingerLandmarks['middle'][1], color=(0, 0, 255), thickness=3, lineType=8)
-
-
-                    if id == 13:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 100, 0), cv2.FILLED)
-                        fingerLandmarks['ring'][0] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['palm'], fingerLandmarks['ring'][0], color=(255, 100, 0), thickness=3, lineType=8)
-                    if id == 16:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['ring'][1] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['ring'][0], fingerLandmarks['ring'][1], color=(255, 100, 0), thickness=3, lineType=8)
-
-
-                    if id == 17:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 100), cv2.FILLED)
-                        fingerLandmarks['pinky'][0] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['palm'], fingerLandmarks['pinky'][0], color=(255, 0, 100), thickness=3, lineType=8)
-                    if id == 20:
-                        cv2.circle(processed_image, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
-                        fingerLandmarks['pinky'][1] = (cx, cy)
-                        cv2.line(processed_image, fingerLandmarks['pinky'][0], fingerLandmarks['pinky'][1], color=(255, 0, 0), thickness=3, lineType=8)
+                    if id == 17: draw_knuckle(pinkyData, (cx, cy))
+                    if id == 20: draw_tip(pinkyData, (cx, cy))
 
 
 if __name__ == "__main__":
@@ -157,17 +142,18 @@ if __name__ == "__main__":
             highest_val = dist[highest_val_index[0], highest_val_index[1]]
             
             # Normalize range to {0.0 - 1.0} for visulisation
-            cv2.normalize(dist, dist, 0, 1.0, cv2.NORM_MINMAX)
+            norm_dist = np.copy(dist)
+            cv2.normalize(norm_dist, norm_dist, 0, 1.0, cv2.NORM_MINMAX)
         
             # Draw circle centered on highest value with radius relative to distance
             # Only draw circle every 5 frames to reduce stutter
             if current_frame == 5:
-                draw_frame_cords = np.flipud(highest_val_index)
-                fingerLandmarks['palm'] = draw_frame_cords
+                palmData.setCentrePoint(np.flipud(highest_val_index))
+                palmData.calcAverageCord()
                 current_frame = 0
 
             # Draw keypoints
-            processed_image = cv2.circle(binary_image, draw_frame_cords, int(highest_val), (0, 0, 255), 1)
+            processed_image = cv2.circle(binary_image, palmData.averagePoint, int(highest_val), palmData.colour, cv2.FILLED)
             draw_finger_keypoints(processed_image)
 
             current_frame += 1
@@ -175,7 +161,7 @@ if __name__ == "__main__":
             # Display view
             cv2.imshow('Virtual Glove Marker', processed_image)
             cv2.imshow("Depth Threshold", bg_removed)
-            cv2.imshow('Distance Transform Image', dist)
+            cv2.imshow('Distance Transform Image', norm_dist)
 
             # Press esc or 'q' to close the image window
             key = cv2.waitKey(1)
